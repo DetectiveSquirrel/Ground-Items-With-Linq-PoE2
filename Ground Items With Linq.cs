@@ -405,7 +405,7 @@ public class Ground_Items_With_Linq : BaseSettingsPlugin<Ground_Items_With_LinqS
                 boxRect.Center.Y - socketHeight / 2f
             );
 
-            SocketEmulation(entity.SocketInfo.SocketGroups, socketStartingPoint, entity.Width == 1);
+            SocketEmulation(entity.SocketInfo.SocketList, socketStartingPoint, entity.GemInfo.IsGem);
         }
 
         return fullHeight + drawStyle.BorderWidth * 2;
@@ -532,132 +532,68 @@ public class Ground_Items_With_Linq : BaseSettingsPlugin<Ground_Items_With_LinqS
         return _itemFilters != null && _itemFilters.Any(filter => filter.Matches(item));
     }
 
-    #region Socket and Link Emulation
+    #region Socket Emulation
 
-    public void SocketEmulation(List<string> socketGroups, bool oneHander)
-    {
-        var startingPoint = new Vector2N(
-            GameController.IngameState.MousePosX + 30,
-            GameController.IngameState.MousePosY
-        );
-
-        SocketEmulation(socketGroups, startingPoint, oneHander);
-    }
-
-    private static readonly Dictionary<int, Direction?> NormalSocketDirections = new()
+    private static readonly Dictionary<int, Direction> GemSocketDirections = new()
     {
         [0] = Direction.Right,
         [1] = Direction.Down,
         [2] = Direction.Left,
         [3] = Direction.Down,
         [4] = Direction.Right,
+        [5] = Direction.Down
     };
 
-    private static readonly Dictionary<int, Direction?> OneHandedSocketDirections = new()
+    private static readonly Dictionary<int, Direction> ItemSocketDirections = new()
     {
         [0] = Direction.Down,
         [1] = Direction.Down,
+        [2] = Direction.Down,
+        [3] = Direction.Down,
+        [4] = Direction.Down,
+        [5] = Direction.Down,
     };
 
-    public void SocketEmulation(IEnumerable<string> socketGroups, Vector2N startingPoint, bool oneHander)
+    public void SocketEmulation(List<SocketTypes> sockets, Vector2N startingPoint, bool isSkillGem)
     {
         var socketDisplaySettings = Settings.SocketDisplaySettings;
         var socketPosDiff = socketDisplaySettings.SocketSize + socketDisplaySettings.SocketSpacing;
-
-        var sockets = new List<Socket>();
-        Direction IndexToDirection(int index) => (oneHander ? OneHandedSocketDirections : NormalSocketDirections).GetValueOrDefault(index) ?? Direction.None;
         var currentPosition = Vector2N.Zero;
-        var socketIndex = 0;
 
-        // Parse socket information and create sockets
-        foreach (var socketItem in socketGroups)
-            for (var charIndex = 0; charIndex < socketItem.Length; charIndex++)
+        for (var i = 0; i < sockets.Count; i++)
+        {
+            var socket = sockets[i];
+            var direction = (isSkillGem ? ItemSocketDirections : GemSocketDirections).GetValueOrDefault(i, Direction.None);
+
+            // Draw the socket
+            var drawPosition = startingPoint + currentPosition;
+            var boxSize = new Vector2N(socketDisplaySettings.SocketSize, socketDisplaySettings.SocketSize);
+            DrawSocketBox(new RectangleF(drawPosition.X, drawPosition.Y, boxSize.X, boxSize.Y), GetSocketColor(socket));
+
+            // Move to next position based on direction
+            currentPosition += direction switch
             {
-                var charColor = socketItem[charIndex];
-                var trueDirection = IndexToDirection(socketIndex);
-                var drawDirection = charIndex == socketItem.Length - 1 ? Direction.None : trueDirection;
-                var socket = new Socket(GetSocketColor(charColor), currentPosition, drawDirection, socketDisplaySettings.LinkColor);
-                currentPosition += trueDirection switch
-                {
-                    Direction.Right => Vector2N.UnitX * socketPosDiff,
-                    Direction.Down => Vector2N.UnitY * socketPosDiff,
-                    Direction.Left => -Vector2N.UnitX * socketPosDiff,
-                    _ => Vector2N.Zero,
-                };
-
-                sockets.Add(socket);
-                socketIndex += 1;
-            }
-
-        SetSocketConnections(sockets);
-
-        foreach (var socket in sockets)
-            socket.Draw(new Vector2N(socketDisplaySettings.SocketSize, socketDisplaySettings.SocketSize), socketDisplaySettings.LinkWidth, startingPoint);
+                Direction.Right => Vector2N.UnitX * socketPosDiff,
+                Direction.Down => Vector2N.UnitY * socketPosDiff,
+                Direction.Left => -Vector2N.UnitX * socketPosDiff,
+                _ => Vector2N.Zero,
+            };
+        }
     }
 
-    private Color GetSocketColor(char charColor)
+    private Color GetSocketColor(SocketTypes socketType)
     {
-        return charColor switch
+        return socketType switch
         {
-            'R' => (Color)Settings.SocketDisplaySettings.RedSocketColor,
-            'G' => (Color)Settings.SocketDisplaySettings.GreenSocketColor,
-            'B' => (Color)Settings.SocketDisplaySettings.BlueSocketColor,
-            'W' => (Color)Settings.SocketDisplaySettings.WhiteSocketColor,
-            'A' => (Color)Settings.SocketDisplaySettings.AbyssalSocketColor,
-            'O' => (Color)Settings.SocketDisplaySettings.ResonatorSocketColor,
-            _ => Color.Black
+            SocketTypes.Gem => Settings.SocketDisplaySettings.GemSocketColor,
+            SocketTypes.Rune => Settings.SocketDisplaySettings.RuneSocketColor,
+            _ => Color.HotPink
         };
     }
 
-    private static void SetSocketConnections(IReadOnlyList<Socket> sockets)
+    private void DrawSocketBox(RectangleF rect, Color color)
     {
-        for (var i = 0; i < sockets.Count - 1; i++)
-        {
-            sockets[i].Link = sockets[i + 1];
-        }
-    }
-
-    public record Socket(Color Color, Vector2N Position, Direction Direction, Color LinkColor)
-    {
-        public Socket Link { get; set; }
-
-        public void Draw(Vector2N boxSize, float linkWidth, Vector2N startDrawLocation)
-        {
-            var drawPosition = startDrawLocation + Position;
-
-            DrawLineToNextSocketIfPresent(boxSize, startDrawLocation, drawPosition, linkWidth);
-            DrawBoxAtPosition(boxSize, drawPosition);
-        }
-
-        private void DrawBoxAtPosition(Vector2N boxSize, Vector2N drawPosition)
-        {
-            DrawBox(new RectangleF(drawPosition.X, drawPosition.Y, boxSize.X, boxSize.Y), Color);
-        }
-
-        private void DrawLineToNextSocketIfPresent(Vector2N boxSize, Vector2N startDrawLocation, Vector2N drawPosition, float linkWidth)
-        {
-            if (Link == null)
-            {
-                return;
-            }
-
-            if (Direction != Direction.None)
-            {
-                DrawLine(drawPosition + boxSize / 2, startDrawLocation + Link.Position + boxSize / 2, linkWidth);
-            }
-        }
-
-        public void DrawBox(RectangleF rect, Color color)
-        {
-            // Your own DrawBox implementation
-            _graphics.DrawBox(rect, color);
-        }
-
-        public void DrawLine(Vector2N p1, Vector2N p2, float borderWidth)
-        {
-            // Your own DrawLine implementation
-            _graphics.DrawLine(p1, p2, borderWidth, LinkColor);
-        }
+        _graphics.DrawBox(rect, color);
     }
 
     public enum Direction
@@ -668,7 +604,7 @@ public class Ground_Items_With_Linq : BaseSettingsPlugin<Ground_Items_With_LinqS
         Left
     }
 
-    #endregion Socket and Link Emulation
+    #endregion Socket Emulation
 
     #region Rule Drawing and Loading
 

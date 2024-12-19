@@ -61,14 +61,8 @@ public class SocketDisplaySettings
     public RangeNode<int> SocketSize { get; set; } = new(6, 1, 60);
     public RangeNode<int> SocketSpacing { get; set; } = new(4, 4, 60);
     public RangeNode<int> SocketPadding { get; set; } = new(5, 0, 60);
-    public ColorNode RedSocketColor { get; set; } = Color.FromArgb(255, 13, 50, 201);
-    public ColorNode GreenSocketColor { get; set; } = Color.FromArgb(255, 158, 202, 13);
-    public ColorNode BlueSocketColor { get; set; } = Color.FromArgb(255, 88, 130, 254);
-    public ColorNode WhiteSocketColor { get; set; } = Color.White;
-    public ColorNode AbyssalSocketColor { get; set; } = Color.FromArgb(255, 59, 59, 59);
-    public ColorNode ResonatorSocketColor { get; set; } = Color.FromArgb(255, 249, 149, 13);
-    public ColorNode LinkColor { get; set; } = Color.FromArgb(255, 195, 195, 195);
-    public RangeNode<int> LinkWidth { get; set; } = new(4, 2, 20);
+    public ColorNode GemSocketColor { get; set; } = Color.FromArgb(255, 195, 195, 195);
+    public ColorNode RuneSocketColor { get; set; } = Color.FromArgb(255, 196, 195, 195);
 }
 
 [Submenu]
